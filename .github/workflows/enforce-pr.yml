@@ -1,0 +1,57 @@
+name: Enforce PR Hygiene
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  enforce-pr:
+    name: PR description check
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR body must not be empty
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ -z "$PR_BODY" ] || [ ${#PR_BODY} -lt 50 ]; then
+            echo "::error::PR description is empty or too short (< 50 chars)."
+            echo "Fill in the pull request template before merging."
+            exit 1
+          fi
+          echo "PR body length: ${#PR_BODY} chars — OK."
+
+      - name: Tier must be selected
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if ! echo "$PR_BODY" | grep -qE '\- \[x\] (Tier 1|Tier 2|Tier 3)'; then
+            echo "::error::No tier selected in the PR description."
+            echo "Check exactly one tier in the PR template: [ ] Tier 1, [ ] Tier 2, [ ] Tier 3"
+            exit 1
+          fi
+          TIER=$(echo "$PR_BODY" | grep -oE 'Tier [123]' | head -1)
+          echo "Tier selected: $TIER"
+
+      - name: Review checklist must be completed
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # Fail if any required checklist item is unchecked
+          UNCHECKED=$(echo "$PR_BODY" | tr -d '\r' | grep -c '^\- \[ \]' || true)
+          if [ "$UNCHECKED" -gt 0 ]; then
+            echo "::error::PR has $UNCHECKED unchecked required item(s) in the checklist."
+            echo "Complete all checklist items before merging."
+            exit 1
+          fi
+          echo "All checklist items are checked."
+
+      - name: Branch naming convention
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          if ! echo "$BRANCH" | grep -qE '^(feature|major|epic|hotfix|fix|chore)/'; then
+            echo "::warning::Branch '$BRANCH' does not follow naming conventions."
+            echo "Expected: feature/*, major/*, epic/*, hotfix/*, fix/*, chore/*"
+          else
+            echo "Branch name is valid: $BRANCH"
+          fi

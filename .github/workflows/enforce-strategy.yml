@@ -1,0 +1,65 @@
+name: Enforce Strategy (Tier 3)
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  enforce-strategy:
+    name: Strategy artifact check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect branch tier
+        id: tier
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+          if [[ "$BRANCH" == major/* || "$BRANCH" == epic/* ]]; then
+            echo "tier=3" >> $GITHUB_OUTPUT
+            echo "Tier 3 branch detected: $BRANCH"
+          else
+            echo "tier=skip" >> $GITHUB_OUTPUT
+            echo "Not a Tier 3 branch — strategy check skipped."
+          fi
+
+      - name: STRATEGY.md must exist
+        if: steps.tier.outputs.tier == '3'
+        run: |
+          if [ ! -f "STRATEGY.md" ]; then
+            echo "::error file=STRATEGY.md::STRATEGY.md is missing."
+            echo ""
+            echo "Tier 3 branches (major/*, epic/*) require a completed STRATEGY.md."
+            echo "Run /ce-strategy in Claude Code to generate it, then commit the file."
+            exit 1
+          fi
+
+      - name: STRATEGY.md must have required sections
+        if: steps.tier.outputs.tier == '3'
+        run: |
+          FAILED=0
+          for section in "Direction" "Target Users" "Metrics" "Constraints" "Out of Scope"; do
+            if ! grep -q "## $section" STRATEGY.md; then
+              echo "::error file=STRATEGY.md::STRATEGY.md is missing required section: '## $section'"
+              FAILED=1
+            fi
+          done
+          if [ $FAILED -eq 1 ]; then
+            echo ""
+            echo "STRATEGY.md must contain all required sections."
+            echo "Use templates/STRATEGY.md in this repo as a reference."
+            exit 1
+          fi
+          echo "STRATEGY.md is complete. All required sections present."
+
+      - name: Direction section must not be empty
+        if: steps.tier.outputs.tier == '3'
+        run: |
+          CONTENT=$(awk '/^## Direction/{found=1; next} found && /^## /{exit} found{print}' STRATEGY.md | tr -d '[:space:]')
+          if [ -z "$CONTENT" ]; then
+            echo "::error file=STRATEGY.md::STRATEGY.md — Direction section is empty."
+            exit 1
+          fi
+          echo "Direction section has content."

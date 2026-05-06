@@ -1,0 +1,80 @@
+name: Enforce OpenSpec Artifacts
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  enforce-openspec:
+    name: OpenSpec artifact check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect branch tier
+        id: tier
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+          if [[ "$BRANCH" == hotfix/* || "$BRANCH" == fix/* || "$BRANCH" == chore/* ]]; then
+            echo "tier=1" >> $GITHUB_OUTPUT
+            echo "Tier 1 branch — OpenSpec check skipped."
+          elif [[ "$BRANCH" == feature/* || "$BRANCH" == major/* || "$BRANCH" == epic/* ]]; then
+            echo "tier=2" >> $GITHUB_OUTPUT
+            echo "Tier 2/3 branch detected: $BRANCH"
+          else
+            echo "tier=1" >> $GITHUB_OUTPUT
+            echo "Unrecognised branch prefix — treating as Tier 1, OpenSpec check skipped."
+            echo "::warning::Branch '$BRANCH' does not follow naming conventions."
+            echo "Use feature/*, major/*, epic/*, hotfix/*, fix/*, or chore/*"
+          fi
+
+      - name: OpenSpec artifacts must exist
+        if: steps.tier.outputs.tier == '2'
+        run: |
+          FAILED=0
+          for artifact in proposal.md design.md tasks.md; do
+            COUNT=$(find . -name "$artifact" -not -path "./.git/*" | wc -l)
+            if [ "$COUNT" -eq 0 ]; then
+              echo "::error::Missing OpenSpec artifact: $artifact"
+              FAILED=1
+            else
+              echo "Found: $(find . -name "$artifact" -not -path "./.git/*")"
+            fi
+          done
+
+          if [ $FAILED -eq 1 ]; then
+            echo ""
+            echo "Feature branches require OpenSpec artifacts."
+            echo "Run /opsx:propose <feature-name> in Claude Code to generate them."
+            exit 1
+          fi
+
+      - name: tasks.md must have at least one task defined
+        if: steps.tier.outputs.tier == '2'
+        run: |
+          TASKS_FILE=$(find . -name "tasks.md" -not -path "./.git/*" | head -1)
+          TASK_COUNT=$(grep -c '^\s*- \[' "$TASKS_FILE" 2>/dev/null || echo 0)
+
+          if [ "$TASK_COUNT" -eq 0 ]; then
+            echo "::error file=$TASKS_FILE::tasks.md contains no tasks."
+            echo "Run /opsx:propose to regenerate or fill in tasks manually."
+            exit 1
+          fi
+          echo "tasks.md has $TASK_COUNT task(s) defined."
+
+      - name: proposal.md must have success criteria
+        if: steps.tier.outputs.tier == '2'
+        run: |
+          PROPOSAL_FILE=$(find . -name "proposal.md" -not -path "./.git/*" | head -1)
+          if ! grep -q "## Success Criteria" "$PROPOSAL_FILE"; then
+            echo "::error file=$PROPOSAL_FILE::proposal.md is missing '## Success Criteria' section."
+            exit 1
+          fi
+          CRITERIA=$(awk '/^## Success Criteria/{found=1; next} found && /^## /{exit} found{print}' "$PROPOSAL_FILE" | grep -c '^\s*- \[' || true)
+          if [ "$CRITERIA" -eq 0 ]; then
+            echo "::error file=$PROPOSAL_FILE::proposal.md has no success criteria items."
+            exit 1
+          fi
+          echo "proposal.md has $CRITERIA success criteria."
