@@ -7,3 +7,4 @@
 | [workflow.md](workflow.md) | Daily reference | Command quick-reference by tier |
 | [exec-diagram.md](exec-diagram.md) | Stakeholders / presentations | Visual diagrams of the full lifecycle |
 | [toolchain-review.md](toolchain-review.md) | Tech lead / decision makers | Critical analysis of OpenSpec + Compound Engineering |
+| [end-to-end-walkthrough.md](end-to-end-walkthrough.md) | Tech lead / decision makers | Step-by-step guide to run the full lifecycle; efficiency test instrument |

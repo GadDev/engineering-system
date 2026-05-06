@@ -28,10 +28,13 @@ For a full explanation of each step, see [onboarding.md](onboarding.md).
 ```
 /opsx:propose feature-name
 /ce-brainstorm           ← optional, use when approach is unclear
-/ce-plan
-/ce-work
+/ce-plan          ← reads openspec/changes/<name>/tasks.md
+/ce-work          ← implements and marks tasks [x] in openspec/changes/<name>/tasks.md
 /ce-code-review
+/opsx:verify
 /ce-compound
+/ce-commit-push-pr
+/opsx:archive
 ```
 
 ---
@@ -42,11 +45,14 @@ For a full explanation of each step, see [onboarding.md](onboarding.md).
 /ce-strategy
 /ce-ideate
 /opsx:propose
-/opsx:apply
-/ce-plan
-/ce-work
+/ce-plan          ← reads openspec/changes/<name>/tasks.md
+/ce-work          ← implements and marks tasks [x] in openspec/changes/<name>/tasks.md
 /ce-code-review
+/security-review  ← Claude Code native skill (Tier 3 only)
+/opsx:verify
 /ce-compound
+/ce-commit-push-pr
+/opsx:archive
 /ce-product-pulse
 ```
 
